@@ -98,21 +98,28 @@ const MaterialSelectionPortal = () => {
   };
 
   const selectTopic = async (topicId, topicName) => {
+    // Add selected topic to 'selectedTopics' collection
     await addDoc(collection(db, "selectedTopics"), {
       name,
       rrn,
       selectedTopic: topicName,
       timestamp: new Date(),
     });
-    await deleteDoc(doc(db, "topics", String(topicId)));
+  
+    // Delete selected topic from 'topics' collection
+    const topicDocRef = doc(db, "topics", topicId); // Correct reference to the Firestore document
+    await deleteDoc(topicDocRef);
+  
+    // Update the local state to remove the topic from the list
     setTopics(topics.filter((topic) => topic.id !== topicId));
-
-    // Save selected topic in state & localStorage
+  
+    // Save selected topic to localStorage
     setSelectedTopic(topicName);
     localStorage.setItem("selectedTopic", topicName);
-
+  
     alert("Topic selected successfully!");
   };
+  
 
   return (
     <div className="container mt-5">
