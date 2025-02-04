@@ -49,29 +49,30 @@ const MaterialSelectionPortal = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (loggedIn) {
-      const fetchTopics = async () => {
-        const querySnapshot = await getDocs(collection(db, "topics"));
-        setTopics(querySnapshot.docs.map((doc) => ({ id: Number(doc.id), ...doc.data() })));
-      };
+useEffect(() => {
+  if (loggedIn) {
+    const fetchTopics = async () => {
+      const querySnapshot = await getDocs(collection(db, "topics"));
+      setTopics(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))); // Don't convert doc.id to number
+    };
 
-      const checkSelectedTopic = async () => {
-        const selectedTopicRef = collection(db, "selectedTopics");
-        const q = query(selectedTopicRef, where("rrn", "==", rrn));
-        const querySnapshot = await getDocs(q);
+    const checkSelectedTopic = async () => {
+      const selectedTopicRef = collection(db, "selectedTopics");
+      const q = query(selectedTopicRef, where("rrn", "==", rrn));
+      const querySnapshot = await getDocs(q);
 
-        if (!querySnapshot.empty) {
-          const userTopic = querySnapshot.docs[0].data();
-          setSelectedTopic(userTopic.selectedTopic);
-          localStorage.setItem("selectedTopic", userTopic.selectedTopic); // Store selected topic
-        }
-      };
+      if (!querySnapshot.empty) {
+        const userTopic = querySnapshot.docs[0].data();
+        setSelectedTopic(userTopic.selectedTopic);
+        localStorage.setItem("selectedTopic", userTopic.selectedTopic); // Store selected topic
+      }
+    };
 
-      fetchTopics();
-      checkSelectedTopic(); // Check if the user has already selected a topic
-    }
-  }, [loggedIn, rrn]);
+    fetchTopics();
+    checkSelectedTopic(); // Check if the user has already selected a topic
+  }
+}, [loggedIn, rrn]);
+
 
   const handleLogin = async () => {
     if (name && rrn) {
@@ -97,28 +98,29 @@ const MaterialSelectionPortal = () => {
     setLoggedIn(false);
   };
 
-  const selectTopic = async (topicId, topicName) => {
-    // Add selected topic to 'selectedTopics' collection
-    await addDoc(collection(db, "selectedTopics"), {
-      name,
-      rrn,
-      selectedTopic: topicName,
-      timestamp: new Date(),
-    });
+const selectTopic = async (topicId, topicName) => {
+  // Add selected topic to 'selectedTopics' collection
+  await addDoc(collection(db, "selectedTopics"), {
+    name,
+    rrn,
+    selectedTopic: topicName,
+    timestamp: new Date(),
+  });
+
+  // Delete selected topic from 'topics' collection using Firestore doc ID (as a string)
+  const topicDocRef = doc(db, "topics", topicId); // topicId is already the correct string type
+  await deleteDoc(topicDocRef);
+
+  // Update the local state to remove the topic from the list
+  setTopics(topics.filter((topic) => topic.id !== topicId)); // Filter by the string ID
   
-    // Delete selected topic from 'topics' collection
-    const topicDocRef = doc(db, "topics", topicId); // Correct reference to the Firestore document
-    await deleteDoc(topicDocRef);
-  
-    // Update the local state to remove the topic from the list
-    setTopics(topics.filter((topic) => topic.id !== topicId));
-  
-    // Save selected topic to localStorage
-    setSelectedTopic(topicName);
-    localStorage.setItem("selectedTopic", topicName);
-  
-    alert("Topic selected successfully!");
-  };
+  // Save selected topic to localStorage
+  setSelectedTopic(topicName);
+  localStorage.setItem("selectedTopic", topicName);
+
+  alert("Topic selected successfully!");
+};
+
   
 
   return (
