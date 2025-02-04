@@ -99,7 +99,7 @@ useEffect(() => {
   };
 
 const selectTopic = async (topicId, topicName) => {
-  // First, check if the topic is already in selectedTopics for the current user (by checking `rrn`)
+  // Check if the topic is already in the selectedTopics for the current user (by checking `rrn`)
   const selectedTopicRef = collection(db, "selectedTopics");
   const q = query(selectedTopicRef, where("rrn", "==", rrn), where("selectedTopic", "==", topicName));
   const querySnapshot = await getDocs(q);
@@ -123,16 +123,16 @@ const selectTopic = async (topicId, topicName) => {
   const topicDocRef = doc(db, "topics", topicId); // Correct reference to the Firestore document
   await deleteDoc(topicDocRef);
 
-  // Update the local state to remove the topic from the list
-  setTopics(topics.filter((topic) => topic.id !== topicId));
+  // Update the local state to remove the topic from the list and set the selected topic
+  setTopics((prevTopics) => prevTopics.filter((topic) => topic.id !== topicId)); // Remove topic from list
+  setSelectedTopic(topicName); // Set the selected topic
 
   // Save selected topic to localStorage
-  setSelectedTopic(topicName);
   localStorage.setItem("selectedTopic", topicName);
 
   alert("Topic selected successfully!");
 };
-;
+
 
   
 
