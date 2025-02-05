@@ -22,7 +22,6 @@ const firebaseConfig = {
   measurementId: "G-WZQ4QM5P0T"
 };
 
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -32,58 +31,84 @@ const MaterialSelectionPortal = () => {
   const [loggedIn, setLoggedIn] = useState(false);
   const [topics, setTopics] = useState([]);
   const [search, setSearch] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState(null); // State to track the selected topic
+  const [selectedTopic, setSelectedTopic] = useState(null);
 
-  // Load saved user & selected topic from localStorage
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("user"));
     const savedTopic = localStorage.getItem("selectedTopic");
-
+  
     if (savedUser) {
       setName(savedUser.name);
       setRrn(savedUser.rrn);
       setLoggedIn(true);
+      fetchSelectedTopic(savedUser.rrn);
+      fetchTopics(); // ✅ Fetch topics after login
     }
+  
     if (savedTopic) {
       setSelectedTopic(savedTopic);
     }
   }, []);
+  
 
   const fetchTopics = async () => {
     try {
-      // Get all topics
       const topicsSnapshot = await getDocs(collection(db, "topics"));
       let fetchedTopics = topicsSnapshot.docs.map((doc) => ({
-        id: Number(doc.id),
+        id: doc.id,
         ...doc.data(),
       }));
-  
-      // Get all removed topics
+
       const removedSnapshot = await getDocs(collection(db, "removedTopics"));
       const removedTopics = removedSnapshot.docs.map((doc) => doc.data().topicName);
-  
-      // Filter out removed topics
+
       fetchedTopics = fetchedTopics.filter((topic) => !removedTopics.includes(topic.topicName));
-  
       setTopics(fetchedTopics);
     } catch (error) {
       console.error("Error fetching topics:", error);
     }
   };
-  
 
-  useEffect(() => {
-    if (loggedIn) {
-      fetchTopics();
+const fetchSelectedTopic = async (rrn) => {
+  try {
+    const selectedRef = collection(db, "selectedTopics");
+    const q = query(selectedRef, where("rrn", "==", rrn));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const selectedData = querySnapshot.docs[0].data();
+      setSelectedTopic(selectedData.selectedTopic);
+      localStorage.setItem("selectedTopic", selectedData.selectedTopic);
+    } else {
+      setSelectedTopic(null);
+      localStorage.removeItem("selectedTopic");
     }
-  }, [loggedIn]);
-  
+  } catch (error) {
+    console.error("Error fetching selected topic:", error);
+  }
+};
+
+
+useEffect(() => {
+  const savedUser = JSON.parse(localStorage.getItem("user"));
+
+  if (savedUser) {
+    setName(savedUser.name);
+    setRrn(savedUser.rrn);
+    setLoggedIn(true);
+
+    // Fetch selected topic from Firestore
+    fetchSelectedTopic(savedUser.rrn);
+  }
+}, []);
+
+
   const handleLogin = async () => {
     if (name && rrn) {
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("rrn", "==", rrn));
       const querySnapshot = await getDocs(q);
-      
+
       if (querySnapshot.empty) {
         await addDoc(usersRef, { name, rrn });
       }
@@ -95,57 +120,81 @@ const MaterialSelectionPortal = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("user");
-    localStorage.removeItem("selectedTopic"); // Clear selected topic on logout
+    localStorage.removeItem("selectedTopic");
     setName("");
     setRrn("");
     setSelectedTopic(null);
     setLoggedIn(false);
   };
 
-  const selectTopic = async (topicId, topicName) => {
-    try {
-      // Reference to `removedTopics` collection
-      const removedTopicsRef = collection(db, "removedTopics");
-  
-      // Check if the topic already exists in `removedTopics`
-      const q = query(removedTopicsRef, where("topicName", "==", topicName));
-      const querySnapshot = await getDocs(q);
-  
-      if (!querySnapshot.empty) {
-        alert("This topic has already been selected and moved to 'Removed Topics'.");
+const selectTopic = async (topicId, topicName) => {
+  try {
+    if (!topicId || !topicName) {
+      console.error("Invalid topicId or topicName:", topicId, topicName);
+      alert("Invalid topic selection. Please try again.");
+      return;
+    }
+
+    // Log what we are getting
+    console.log("Raw topicId:", topicId, "Type:", typeof topicId);
+    
+    // Ensure it's a valid Firestore document ID (string)
+    if (typeof topicId !== "string") {
+      if (typeof topicId === "object" && topicId.id) {
+        topicId = topicId.id; // Extract ID if it's a Firestore document reference
+      } else {
+        console.error("Invalid topicId format:", topicId);
+        alert("Error: Topic ID is not a valid string.");
         return;
       }
-  
-      // Add selected topic to 'selectedTopics' collection
-      await addDoc(collection(db, "selectedTopics"), {
-        name,
-        rrn,
-        selectedTopic: topicName,
-        timestamp: new Date(),
-      });
-  
-      // Move the topic to 'removedTopics' table
-      await addDoc(removedTopicsRef, {
-        topicId,
-        topicName,
-        timestamp: new Date(),
-      });
-  
-      // Delete the topic from 'topics' collection
-      const topicDocRef = doc(db, "topics", topicId);
-      await deleteDoc(topicDocRef);
-  
-      // Save selected topic to localStorage
-      localStorage.setItem("selectedTopic", topicName);
-      
-      // Refresh the page to show the selected topic card
-      window.location.reload();  
-  
-    } catch (error) {
-      console.error("Error selecting topic:", error);
-      alert("Successfully Selected");
     }
-  };
+
+    const topicIdStr = topicId.trim(); // Ensure no leading/trailing spaces
+
+    console.log("Final topicIdStr:", topicIdStr, "Type:", typeof topicIdStr);
+
+    // Validate ID again
+    if (!topicIdStr || topicIdStr.includes("//")) {
+      console.error("Invalid Firestore document ID:", topicIdStr);
+      alert("Invalid document ID format. Please try again.");
+      return;
+    }
+
+    // Store selected topic
+    await addDoc(collection(db, "selectedTopics"), {
+      name,
+      rrn,
+      selectedTopic: topicName,
+      timestamp: new Date(),
+    });
+
+    // Track removal
+    await addDoc(collection(db, "removedTopics"), {
+      topicId: topicIdStr,
+      topicName,
+      timestamp: new Date(),
+    });
+
+    console.log("Deleting document:", topicIdStr);
+
+    const topicDocRef = doc(db, "topics", topicIdStr);
+    await deleteDoc(topicDocRef);
+
+    // Update UI
+    setTopics((prevTopics) => prevTopics.filter((topic) => topic.id !== topicIdStr));
+    setSelectedTopic(topicName);
+    localStorage.setItem("selectedTopic", topicName);
+
+    alert("Topic selected successfully!");
+    window.location.reload();
+  } catch (error) {
+    console.error("Error selecting topic:", error);
+    alert("An error occurred while selecting the topic. Please try again.");
+  }
+};
+
+  
+  
   
 
   return (
@@ -173,7 +222,7 @@ const MaterialSelectionPortal = () => {
         </div>
       ) : (
         <div>
-            <h3 className="h3">CHDX04 - Functional Materials and Application</h3>
+          <h3 className="h3">CHDX04 - Functional Materials and Application</h3>
           <hr />
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h3>Select An Assignment Topic</h3>
@@ -182,15 +231,13 @@ const MaterialSelectionPortal = () => {
             </button>
           </div>
 
-          {/* Display selected topic */}
           {selectedTopic ? (
-            <div className="card p-3 mb-3 bg-info text-white">
+            <div className="card p-3 mb-3 bg-dark text-white">
               <h5>Selected Topic:</h5>
               <p className="mb-0 fw-bold">{selectedTopic}</p>
             </div>
           ) : (
             <>
-              {/* Search Bar */}
               <input
                 type="text"
                 className="form-control mb-3"
@@ -199,13 +246,17 @@ const MaterialSelectionPortal = () => {
                 onChange={(e) => setSearch(e.target.value)}
               />
 
-              {/* Topic List */}
               <div className="overflow-auto" style={{ maxHeight: "500px" }}>
                 {topics
-                  .sort((a, b) => a.id - b.id)
-                  .filter((topic) => topic.topicName.toLowerCase().includes(search.toLowerCase()))
+                  .sort((a, b) => a.topicName.localeCompare(b.topicName))
+                  .filter((topic) =>
+                    topic.topicName.toLowerCase().includes(search.toLowerCase())
+                  )
                   .map((topic, index) => (
-                    <div key={topic.id} className="card mb-2 p-3 d-flex flex-row align-items-center">
+                    <div
+                      key={topic.id}
+                      className="card mb-2 p-3 d-flex flex-row align-items-center"
+                    >
                       <span className="fw-bold me-3">{index + 1}.</span>
                       <span className="flex-grow-1">{topic.topicName}</span>
                       <button
