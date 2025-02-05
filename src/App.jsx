@@ -115,6 +115,8 @@ useEffect(() => {
 
       localStorage.setItem("user", JSON.stringify({ name, rrn }));
       setLoggedIn(true);
+      window.location.reload();
+
     }
   };
 
@@ -127,71 +129,66 @@ useEffect(() => {
     setLoggedIn(false);
   };
 
-const selectTopic = async (topicId, topicName) => {
-  try {
-    if (!topicId || !topicName) {
-      console.error("Invalid topicId or topicName:", topicId, topicName);
-      alert("Invalid topic selection. Please try again.");
-      return;
-    }
-
-    // Log what we are getting
-    console.log("Raw topicId:", topicId, "Type:", typeof topicId);
-    
-    // Ensure it's a valid Firestore document ID (string)
-    if (typeof topicId !== "string") {
-      if (typeof topicId === "object" && topicId.id) {
-        topicId = topicId.id; // Extract ID if it's a Firestore document reference
-      } else {
-        console.error("Invalid topicId format:", topicId);
-        alert("Error: Topic ID is not a valid string.");
+  const selectTopic = async (topicId, topicName) => {
+    try {
+      if (!topicId || !topicName) {
+        console.error("Invalid topicId or topicName:", topicId, topicName);
+        alert("Invalid topic selection. Please try again.");
         return;
       }
+  
+      console.log("Raw topicId:", topicId, "Type:", typeof topicId);
+      
+      if (typeof topicId !== "string") {
+        if (typeof topicId === "object" && topicId.id) {
+          topicId = topicId.id; 
+        } else {
+          console.error("Invalid topicId format:", topicId);
+          alert("Error: Topic ID is not a valid string.");
+          return;
+        }
+      }
+  
+      const topicIdStr = topicId.trim(); 
+  
+      console.log("Final topicIdStr:", topicIdStr, "Type:", typeof topicIdStr);
+  
+      if (!topicIdStr || topicIdStr.includes("//")) {
+        console.error("Invalid Firestore document ID:", topicIdStr);
+        alert("Invalid document ID format. Please try again.");
+        return;
+      }
+  
+      await addDoc(collection(db, "selectedTopics"), {
+        name,
+        rrn,
+        selectedTopic: topicName,
+        timestamp: new Date(),
+      });
+  
+      await addDoc(collection(db, "removedTopics"), {
+        topicId: topicIdStr,
+        topicName,
+        timestamp: new Date(),
+      });
+  
+      console.log("Deleting document:", topicIdStr);
+  
+      const topicDocRef = doc(db, "topics", topicIdStr);
+      await deleteDoc(topicDocRef);
+  
+      // ✅ Update state instead of reloading
+      setTopics((prevTopics) => prevTopics.filter((topic) => topic.id !== topicIdStr));
+      setSelectedTopic(topicName);
+      localStorage.setItem("selectedTopic", topicName);
+  
+      alert("Topic selected successfully!");
+    } catch (error) {
+      console.error("Error selecting topic:", error);
+      alert("An error occurred while selecting the topic. Please try again.");
     }
-
-    const topicIdStr = topicId.trim(); // Ensure no leading/trailing spaces
-
-    console.log("Final topicIdStr:", topicIdStr, "Type:", typeof topicIdStr);
-
-    // Validate ID again
-    if (!topicIdStr || topicIdStr.includes("//")) {
-      console.error("Invalid Firestore document ID:", topicIdStr);
-      alert("Invalid document ID format. Please try again.");
-      return;
-    }
-
-    // Store selected topic
-    await addDoc(collection(db, "selectedTopics"), {
-      name,
-      rrn,
-      selectedTopic: topicName,
-      timestamp: new Date(),
-    });
-
-    // Track removal
-    await addDoc(collection(db, "removedTopics"), {
-      topicId: topicIdStr,
-      topicName,
-      timestamp: new Date(),
-    });
-
-    console.log("Deleting document:", topicIdStr);
-
-    const topicDocRef = doc(db, "topics", topicIdStr);
-    await deleteDoc(topicDocRef);
-
-    // Update UI
-    setTopics((prevTopics) => prevTopics.filter((topic) => topic.id !== topicIdStr));
-    setSelectedTopic(topicName);
-    localStorage.setItem("selectedTopic", topicName);
-
-    alert("Topic selected successfully!");
-    window.location.reload();
-  } catch (error) {
-    console.error("Error selecting topic:", error);
-    alert("An error occurred while selecting the topic. Please try again.");
-  }
-};
+  };
+  
 
   
   
