@@ -49,31 +49,35 @@ const MaterialSelectionPortal = () => {
     }
   }, []);
 
-useEffect(() => {
-  if (loggedIn) {
-    const fetchTopics = async () => {
-      const querySnapshot = await getDocs(collection(db, "topics"));
-      setTopics(querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))); // Don't convert doc.id to number
-    };
+  const fetchTopics = async () => {
+    try {
+      // Get all topics
+      const topicsSnapshot = await getDocs(collection(db, "topics"));
+      let fetchedTopics = topicsSnapshot.docs.map((doc) => ({
+        id: Number(doc.id),
+        ...doc.data(),
+      }));
+  
+      // Get all removed topics
+      const removedSnapshot = await getDocs(collection(db, "removedTopics"));
+      const removedTopics = removedSnapshot.docs.map((doc) => doc.data().topicName);
+  
+      // Filter out removed topics
+      fetchedTopics = fetchedTopics.filter((topic) => !removedTopics.includes(topic.topicName));
+  
+      setTopics(fetchedTopics);
+    } catch (error) {
+      console.error("Error fetching topics:", error);
+    }
+  };
+  
 
-    const checkSelectedTopic = async () => {
-      const selectedTopicRef = collection(db, "selectedTopics");
-      const q = query(selectedTopicRef, where("rrn", "==", rrn));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userTopic = querySnapshot.docs[0].data();
-        setSelectedTopic(userTopic.selectedTopic);
-        localStorage.setItem("selectedTopic", userTopic.selectedTopic); // Store selected topic
-      }
-    };
-
-    fetchTopics();
-    checkSelectedTopic(); // Check if the user has already selected a topic
-  }
-}, [loggedIn, rrn]);
-
-
+  useEffect(() => {
+    if (loggedIn) {
+      fetchTopics();
+    }
+  }, [loggedIn]);
+  
   const handleLogin = async () => {
     if (name && rrn) {
       const usersRef = collection(db, "users");
@@ -98,42 +102,50 @@ useEffect(() => {
     setLoggedIn(false);
   };
 
-const selectTopic = async (topicId, topicName) => {
-  // Check if the topic is already in the selectedTopics for the current user (by checking `rrn`)
-  const selectedTopicRef = collection(db, "selectedTopics");
-  const q = query(selectedTopicRef, where("rrn", "==", rrn), where("selectedTopic", "==", topicName));
-  const querySnapshot = await getDocs(q);
-
-  if (!querySnapshot.empty) {
-    // If the topic is already in selectedTopics, don't delete it
-    alert("You have already selected this topic.");
-    return;
-  }
-
-  // If the topic is not already selected, proceed to select and delete it
-  // Add selected topic to 'selectedTopics' collection
-  await addDoc(collection(db, "selectedTopics"), {
-    name,
-    rrn,
-    selectedTopic: topicName,
-    timestamp: new Date(),
-  });
-
-  // Delete selected topic from 'topics' collection
-  const topicDocRef = doc(db, "topics", topicId); // Correct reference to the Firestore document
-  await deleteDoc(topicDocRef);
-
-  // Update the local state to remove the topic from the list and set the selected topic
-  setTopics((prevTopics) => prevTopics.filter((topic) => topic.id !== topicId)); // Remove topic from list
-  setSelectedTopic(topicName); // Set the selected topic
-
-  // Save selected topic to localStorage
-  localStorage.setItem("selectedTopic", topicName);
-
-  alert("Topic selected successfully!");
-};
-
-
+  const selectTopic = async (topicId, topicName) => {
+    try {
+      // Reference to `removedTopics` collection
+      const removedTopicsRef = collection(db, "removedTopics");
+  
+      // Check if the topic already exists in `removedTopics`
+      const q = query(removedTopicsRef, where("topicName", "==", topicName));
+      const querySnapshot = await getDocs(q);
+  
+      if (!querySnapshot.empty) {
+        alert("This topic has already been selected and moved to 'Removed Topics'.");
+        return;
+      }
+  
+      // Add selected topic to 'selectedTopics' collection
+      await addDoc(collection(db, "selectedTopics"), {
+        name,
+        rrn,
+        selectedTopic: topicName,
+        timestamp: new Date(),
+      });
+  
+      // Move the topic to 'removedTopics' table
+      await addDoc(removedTopicsRef, {
+        topicId,
+        topicName,
+        timestamp: new Date(),
+      });
+  
+      // Delete the topic from 'topics' collection
+      const topicDocRef = doc(db, "topics", topicId);
+      await deleteDoc(topicDocRef);
+  
+      // Save selected topic to localStorage
+      localStorage.setItem("selectedTopic", topicName);
+      
+      // Refresh the page to show the selected topic card
+      window.location.reload();  
+  
+    } catch (error) {
+      console.error("Error selecting topic:", error);
+      alert("An error occurred while selecting the topic.");
+    }
+  };
   
 
   return (
