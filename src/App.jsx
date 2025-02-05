@@ -128,7 +128,7 @@ useEffect(() => {
     setSelectedTopic(null);
     setLoggedIn(false);
   };
-
+  
   const selectTopic = async (topicName) => {
     try {
       if (!topicName) {
@@ -137,7 +137,7 @@ useEffect(() => {
         return;
       }
   
-      // ✅ Save topic selection
+      // ✅ Store selected topic with name only
       await addDoc(collection(db, "selectedTopics"), {
         name,
         rrn,
@@ -145,7 +145,7 @@ useEffect(() => {
         timestamp: new Date(),
       });
   
-      // ✅ Mark topic as removed (only using topicName)
+      // ✅ Store removed topic by name only
       await addDoc(collection(db, "removedTopics"), {
         topicName,
         timestamp: new Date(),
@@ -156,13 +156,14 @@ useEffect(() => {
   
       alert("Topic selected successfully!");
   
-      // ✅ Reload the page
+      // ✅ Reload the page after selection
       window.location.reload();
     } catch (error) {
       console.error("Error selecting topic:", error);
       alert("An error occurred while selecting the topic. Please try again.");
     }
   };
+  
   
   
   
