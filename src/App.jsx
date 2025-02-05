@@ -128,7 +128,7 @@ useEffect(() => {
     setSelectedTopic(null);
     setLoggedIn(false);
   };
-  
+
   const selectTopic = async (topicName) => {
     try {
       if (!topicName) {
@@ -236,7 +236,7 @@ useEffect(() => {
                       <span className="flex-grow-1">{topic.topicName}</span>
                       <button
                         className="btn btn-success"
-                        onClick={() => selectTopic(topic.id, topic.topicName)}
+                        onClick={() => selectTopic(topic.topicName)}
                       >
                         Select
                       </button>
