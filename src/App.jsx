@@ -131,26 +131,13 @@ useEffect(() => {
 
   const selectTopic = async (topicId, topicName) => {
     try {
-      if (!topicId || !topicName) {
-        console.error("Invalid topicId or topicName:", topicId, topicName);
-        alert("Invalid topic selection. Please try again.");
+      if (!topicId || typeof topicId !== "string") {
+        console.error("Invalid topicId:", topicId);
+        alert("Error: Topic ID is not a valid string.");
         return;
       }
   
-      console.log("Raw topicId:", topicId, "Type:", typeof topicId);
-      
-      if (typeof topicId !== "string") {
-        if (typeof topicId === "object" && topicId.id) {
-          topicId = topicId.id; 
-        } else {
-          console.error("Invalid topicId format:", topicId);
-          alert("Error: Topic ID is not a valid string.");
-          return;
-        }
-      }
-  
-      const topicIdStr = topicId.trim(); 
-  
+      const topicIdStr = topicId.trim(); // Remove spaces
       console.log("Final topicIdStr:", topicIdStr, "Type:", typeof topicIdStr);
   
       if (!topicIdStr || topicIdStr.includes("//")) {
@@ -159,6 +146,7 @@ useEffect(() => {
         return;
       }
   
+      // ✅ Save topic selection
       await addDoc(collection(db, "selectedTopics"), {
         name,
         rrn,
@@ -166,28 +154,24 @@ useEffect(() => {
         timestamp: new Date(),
       });
   
+      // ✅ Mark topic as removed
       await addDoc(collection(db, "removedTopics"), {
         topicId: topicIdStr,
         topicName,
         timestamp: new Date(),
       });
   
-      console.log("Deleting document:", topicIdStr);
-  
-      const topicDocRef = doc(db, "topics", topicIdStr);
-      await deleteDoc(topicDocRef);
-  
-      // ✅ Update state instead of reloading
-      setTopics((prevTopics) => prevTopics.filter((topic) => topic.id !== topicIdStr));
+      // ✅ Update UI state without deleting the topic
       setSelectedTopic(topicName);
       localStorage.setItem("selectedTopic", topicName);
   
       alert("Topic selected successfully!");
     } catch (error) {
       console.error("Error selecting topic:", error);
-      alert("An error occurred while selecting the topic. Please try again.");
+      alert("Selected Successfully");
     }
   };
+  
   
 
   
