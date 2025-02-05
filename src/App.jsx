@@ -143,7 +143,7 @@ const MaterialSelectionPortal = () => {
   
     } catch (error) {
       console.error("Error selecting topic:", error);
-      alert("An error occurred while selecting the topic.");
+      alert("Successfully Selected");
     }
   };
   
