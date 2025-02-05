@@ -129,20 +129,11 @@ useEffect(() => {
     setLoggedIn(false);
   };
 
-  const selectTopic = async (topicId, topicName) => {
+  const selectTopic = async (topicName) => {
     try {
-      if (!topicId || typeof topicId !== "string") {
-        console.error("Invalid topicId:", topicId);
-        alert("Error: Topic ID is not a valid string.");
-        return;
-      }
-  
-      const topicIdStr = topicId.trim(); // Remove spaces
-      console.log("Final topicIdStr:", topicIdStr, "Type:", typeof topicIdStr);
-  
-      if (!topicIdStr || topicIdStr.includes("//")) {
-        console.error("Invalid Firestore document ID:", topicIdStr);
-        alert("Invalid document ID format. Please try again.");
+      if (!topicName) {
+        console.error("Invalid topic name:", topicName);
+        alert("Error: Topic name is not valid.");
         return;
       }
   
@@ -154,23 +145,25 @@ useEffect(() => {
         timestamp: new Date(),
       });
   
-      // ✅ Mark topic as removed
+      // ✅ Mark topic as removed (only using topicName)
       await addDoc(collection(db, "removedTopics"), {
-        topicId: topicIdStr,
         topicName,
         timestamp: new Date(),
       });
   
-      // ✅ Update UI state without deleting the topic
-      setSelectedTopic(topicName);
+      // ✅ Save selection locally
       localStorage.setItem("selectedTopic", topicName);
   
       alert("Topic selected successfully!");
+  
+      // ✅ Reload the page
+      window.location.reload();
     } catch (error) {
       console.error("Error selecting topic:", error);
-      alert("Selected Successfully");
+      alert("An error occurred while selecting the topic. Please try again.");
     }
   };
+  
   
   
 
