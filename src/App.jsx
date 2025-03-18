@@ -5,8 +5,6 @@ import {
   collection,
   getDocs,
   addDoc,
-  deleteDoc,
-  doc,
   query,
   where,
 } from "firebase/firestore";
@@ -36,20 +34,19 @@ const MaterialSelectionPortal = () => {
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem("user"));
     const savedTopic = localStorage.getItem("selectedTopic");
-  
+
     if (savedUser) {
       setName(savedUser.name);
       setRrn(savedUser.rrn);
       setLoggedIn(true);
       fetchSelectedTopic(savedUser.rrn);
-      fetchTopics(); // ✅ Fetch topics after login
+      fetchTopics();
     }
-  
+
     if (savedTopic) {
       setSelectedTopic(savedTopic);
     }
   }, []);
-  
 
   const fetchTopics = async () => {
     try {
@@ -69,39 +66,24 @@ const MaterialSelectionPortal = () => {
     }
   };
 
-const fetchSelectedTopic = async (rrn) => {
-  try {
-    const selectedRef = collection(db, "selectedTopics");
-    const q = query(selectedRef, where("rrn", "==", rrn));
-    const querySnapshot = await getDocs(q);
+  const fetchSelectedTopic = async (rrn) => {
+    try {
+      const selectedRef = collection(db, "selectedTopics");
+      const q = query(selectedRef, where("rrn", "==", rrn));
+      const querySnapshot = await getDocs(q);
 
-    if (!querySnapshot.empty) {
-      const selectedData = querySnapshot.docs[0].data();
-      setSelectedTopic(selectedData.selectedTopic);
-      localStorage.setItem("selectedTopic", selectedData.selectedTopic);
-    } else {
-      setSelectedTopic(null);
-      localStorage.removeItem("selectedTopic");
+      if (!querySnapshot.empty) {
+        const selectedData = querySnapshot.docs[0].data();
+        setSelectedTopic(selectedData.selectedTopic);
+        localStorage.setItem("selectedTopic", selectedData.selectedTopic);
+      } else {
+        setSelectedTopic(null);
+        localStorage.removeItem("selectedTopic");
+      }
+    } catch (error) {
+      console.error("Error fetching selected topic:", error);
     }
-  } catch (error) {
-    console.error("Error fetching selected topic:", error);
-  }
-};
-
-
-useEffect(() => {
-  const savedUser = JSON.parse(localStorage.getItem("user"));
-
-  if (savedUser) {
-    setName(savedUser.name);
-    setRrn(savedUser.rrn);
-    setLoggedIn(true);
-
-    // Fetch selected topic from Firestore
-    fetchSelectedTopic(savedUser.rrn);
-  }
-}, []);
-
+  };
 
   const handleLogin = async () => {
     if (name && rrn) {
@@ -116,7 +98,6 @@ useEffect(() => {
       localStorage.setItem("user", JSON.stringify({ name, rrn }));
       setLoggedIn(true);
       window.location.reload();
-
     }
   };
 
@@ -136,117 +117,111 @@ useEffect(() => {
         alert("Error: Topic name is not valid.");
         return;
       }
-  
-      // ✅ Store selected topic with name only
+
       await addDoc(collection(db, "selectedTopics"), {
         name,
         rrn,
         selectedTopic: topicName,
         timestamp: new Date(),
       });
-  
-      // ✅ Store removed topic by name only
+
       await addDoc(collection(db, "removedTopics"), {
         topicName,
         timestamp: new Date(),
       });
-  
-      // ✅ Save selection locally
+
       localStorage.setItem("selectedTopic", topicName);
-  
+
       alert("Topic selected successfully!");
-  
-      // ✅ Reload the page after selection
       window.location.reload();
     } catch (error) {
       console.error("Error selecting topic:", error);
       alert("An error occurred while selecting the topic. Please try again.");
     }
   };
-  
-  
-  
-  
-
-  
-  
-  
 
   return (
-    <div className="container mt-5">
-      {!loggedIn ? (
-        <div className="card p-4">
-          <h3>Login</h3>
-          <input
-            type="text"
-            className="form-control mb-2"
-            placeholder="Enter Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            type="text"
-            className="form-control mb-2"
-            placeholder="Enter RRN"
-            value={rrn}
-            onChange={(e) => setRrn(e.target.value)}
-          />
-          <button className="btn btn-primary" onClick={handleLogin}>
-            Login
-          </button>
-        </div>
-      ) : (
-        <div>
-          <h3 className="h3">CHDX04 - Functional Materials and Application</h3>
-          <hr />
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <h3>Select An Assignment Topic</h3>
-            <button className="btn btn-danger" onClick={handleLogout}>
-              Logout
+    <div className="d-flex flex-column min-vh-100">
+      <div className="container mt-5 flex-grow-1">
+        {!loggedIn ? (
+          <div className="card p-4">
+            <h3>Login</h3>
+            <input
+              type="text"
+              className="form-control mb-2"
+              placeholder="Enter Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              type="text"
+              className="form-control mb-2"
+              placeholder="Enter RRN"
+              value={rrn}
+              onChange={(e) => setRrn(e.target.value)}
+            />
+            <button className="btn btn-primary" onClick={handleLogin}>
+              Login
             </button>
           </div>
-
-          {selectedTopic ? (
-            <div className="card p-3 mb-3 bg-dark text-white">
-              <h5>Selected Topic:</h5>
-              <p className="mb-0 fw-bold">{selectedTopic}</p>
+        ) : (
+          <div>
+            <h3 className="h3">CHDX04 - Functional Materials and Application</h3>
+            <hr />
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h3>Select An Assignment Topic</h3>
+              <button className="btn btn-danger" onClick={handleLogout}>
+                Logout
+              </button>
             </div>
-          ) : (
-            <>
-              <input
-                type="text"
-                className="form-control mb-3"
-                placeholder="Search topics..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
 
-              <div className="overflow-auto" style={{ maxHeight: "500px" }}>
-                {topics
-                  .sort((a, b) => a.topicName.localeCompare(b.topicName))
-                  .filter((topic) =>
-                    topic.topicName.toLowerCase().includes(search.toLowerCase())
-                  )
-                  .map((topic, index) => (
-                    <div
-                      key={topic.id}
-                      className="card mb-2 p-3 d-flex flex-row align-items-center"
-                    >
-                      <span className="fw-bold me-3">{index + 1}.</span>
-                      <span className="flex-grow-1">{topic.topicName}</span>
-                      <button
-                        className="btn btn-success"
-                        onClick={() => selectTopic(topic.topicName)}
-                      >
-                        Select
-                      </button>
-                    </div>
-                  ))}
+            {selectedTopic ? (
+              <div className="card p-3 mb-3 bg-dark text-white">
+                <h5>Selected Topic:</h5>
+                <p className="mb-0 fw-bold">{selectedTopic}</p>
               </div>
-            </>
-          )}
-        </div>
-      )}
+            ) : (
+              <>
+                <input
+                  type="text"
+                  className="form-control mb-3"
+                  placeholder="Search topics..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+
+                <div className="overflow-auto" style={{ maxHeight: "500px" }}>
+                  {topics
+                    .sort((a, b) => a.topicName.localeCompare(b.topicName))
+                    .filter((topic) =>
+                      topic.topicName.toLowerCase().includes(search.toLowerCase())
+                    )
+                    .map((topic, index) => (
+                      <div
+                        key={topic.id}
+                        className="card mb-2 p-3 d-flex flex-row align-items-center"
+                      >
+                        <span className="fw-bold me-3">{index + 1}.</span>
+                        <span className="flex-grow-1">{topic.topicName}</span>
+                        <button
+                          className="btn btn-success"
+                          onClick={() => selectTopic(topic.topicName)}
+                        >
+                          Select
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-dark text-white text-center py-3 mt-auto">
+        <p className="mb-0">© 2025 Your Company. All rights reserved.</p>
+      </footer>
     </div>
   );
 };
