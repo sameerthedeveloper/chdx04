@@ -219,9 +219,10 @@ const MaterialSelectionPortal = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-dark text-white text-center py-3 mt-auto">
-        <p className="mb-0">© 2025 <a href='https://www.instagram.com/md___.sameer.___.off/'>Mohamed Sameer</a>. All rights reserved.</p>
-      </footer>
+      <footer className="bg-dark text-white text-center py-3 fixed-bottom">
+  <p className="mb-0">© 2025 <a href='https://www.instagram.com/md___.sameer.___.off/'>Mohamed Sameer</a>. All rights reserved.</p>
+</footer>
+
     </div>
   );
 };
